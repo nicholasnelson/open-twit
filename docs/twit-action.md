@@ -13,7 +13,8 @@ This document outlines how the Phase 2 "twit" action is implemented in atweet af
 2. **Session resume** – The action loads the persisted session (`locals.session`) and calls `createAuthenticatedAgent` to resume the `BskyAgent` using the stored tokens and service URL.
 3. **Record creation** – The server calls `agent.com.atproto.repo.createRecord` with `collection: 'com.atweet.twit'`, `repo: session.did`, and a payload containing `createdAt: new Date().toISOString()`.
 4. **Session refresh** – After the write, the action normalizes `agent.session` via `toSessionPayload`, updates the HTTP-only session cookie, and mirrors the payload back into `locals.session`.
-5. **Response metadata** – The action returns a success payload with the twit timestamp plus a five-second cooldown expiry. The Svelte page uses this to render a success banner and disable the button until the cooldown elapses.
+5. **Feed update** – The newly created record (URI, CID, author metadata, timestamps) is appended to the in-memory feed store so the feed endpoint can surface it immediately.
+6. **Response metadata** – The action returns a success payload with the twit timestamp, URI, and a five-second cooldown expiry. The Svelte page uses this to render a success banner and disable the button until the cooldown elapses.
 
 ## Failure Modes
 - **No active session** – The action returns `fail(401, …)` prompting the user to sign in before twiting.

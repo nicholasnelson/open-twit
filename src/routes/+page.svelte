@@ -18,6 +18,7 @@
 		twitStatus?: 'success' | 'error';
 		twitTimestamp?: string;
 		cooldownExpiresAt?: string;
+		twitUri?: string;
 	};
 
 	type FormState = LoginFormState | TwitFormState | null;
@@ -40,6 +41,12 @@
 	const lastTwitTimestamp = $derived(
 		form?.formType === 'twit' && form.twitStatus === 'success' && form.twitTimestamp
 			? form.twitTimestamp
+			: null
+	);
+
+	const lastTwitUri = $derived(
+		form?.formType === 'twit' && form.twitStatus === 'success' && form.twitUri
+			? form.twitUri
 			: null
 	);
 
@@ -124,6 +131,11 @@
 							<time datetime={lastTwitTimestamp} class="font-mono text-xs">
 								{new Date(lastTwitTimestamp).toLocaleString()}
 							</time>
+							{#if lastTwitUri}
+								<span class="mt-1 block font-mono text-[10px] text-emerald-200/70">
+									{lastTwitUri}
+								</span>
+							{/if}
 						</p>
 					{:else if form?.formType === 'twit' && form.twitStatus === 'error' && form.message}
 						<p

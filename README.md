@@ -39,3 +39,4 @@ Experimental SvelteKit app for testing the AT Protocol by firing "twits" (statel
 - Use AT Protocol app passwords when signing in; the app never stores the raw password, only the resulting session tokens in an HTTP-only cookie during development.
 - See [docs/login-flow.md](docs/login-flow.md) for a step-by-step explanation of the authentication flow.
 - See [docs/twit-action.md](docs/twit-action.md) for the Phase 2 twit action mechanics and cooldown behaviour.
+- See [docs/feed-generator.md](docs/feed-generator.md) for details on the Phase 3 feed module and API endpoint.

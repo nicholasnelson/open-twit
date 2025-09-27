@@ -5,6 +5,7 @@ import {
 	setSessionCookie,
 	toSessionPayload
 } from '$lib/server/session';
+import { twitStore } from '$lib/server/feed/store';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => ({
@@ -89,7 +90,7 @@ export const actions: Actions = {
 				createdAt: new Date().toISOString()
 			};
 
-			await agent.com.atproto.repo.createRecord({
+			const response = await agent.com.atproto.repo.createRecord({
 				repo: session.did,
 				collection: TWIT_COLLECTION,
 				record
@@ -107,13 +108,23 @@ export const actions: Actions = {
 			setSessionCookie(cookies, payload);
 			locals.session = payload;
 
+			twitStore.add({
+				authorDid: payload.did,
+				authorHandle: payload.handle,
+				cid: response.data.cid,
+				indexedAt: new Date().toISOString(),
+				recordCreatedAt: record.createdAt,
+				uri: response.data.uri
+			});
+
 			const cooldownExpiresAt = new Date(Date.now() + TWIT_COOLDOWN_SECONDS * 1000).toISOString();
 
 			return {
 				formType: 'twit',
 				twitStatus: 'success',
 				twitTimestamp: record.createdAt,
-				cooldownExpiresAt
+				cooldownExpiresAt,
+				twitUri: response.data.uri
 			};
 		} catch (error) {
 			console.error('Twit creation failed', error);
