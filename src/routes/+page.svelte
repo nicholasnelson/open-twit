@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import TwitFeed from '$lib/components/TwitFeed.svelte';
 	import type { Session } from '$lib/server/session';
 
 	type PageData = {
@@ -210,5 +211,9 @@
 				</form>
 			{/if}
 		</div>
+	</section>
+
+	<section class="mx-auto w-full max-w-4xl px-6 pb-16">
+		<TwitFeed />
 	</section>
 </main>

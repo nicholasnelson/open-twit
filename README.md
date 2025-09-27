@@ -40,3 +40,4 @@ Experimental SvelteKit app for testing the AT Protocol by firing "twits" (statel
 - See [docs/login-flow.md](docs/login-flow.md) for a step-by-step explanation of the authentication flow.
 - See [docs/twit-action.md](docs/twit-action.md) for the Phase 2 twit action mechanics and cooldown behaviour.
 - See [docs/feed-generator.md](docs/feed-generator.md) for details on the Phase 3 feed module and API endpoint.
+- See [docs/feed-ui.md](docs/feed-ui.md) for the Phase 4 feed experience and UI behaviour.

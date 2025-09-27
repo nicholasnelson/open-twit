@@ -1,5 +1,5 @@
 import { page } from '@vitest/browser/context';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
 import type { Session } from '$lib/server/session';
@@ -19,6 +19,18 @@ const createSession = (overrides: Partial<Session> = {}): Session => ({
 });
 
 describe('/+page.svelte', () => {
+	beforeEach(() => {
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+			ok: true,
+			status: 200,
+			json: async () => ({ cursor: null, items: [] })
+		} as unknown as Response);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it('renders the login form when no session exists', async () => {
 		render(Page, createDefaultProps());
 
@@ -37,5 +49,12 @@ describe('/+page.svelte', () => {
 
 		const signOutButton = page.getByRole('button', { name: 'Sign out' });
 		await expect.element(signOutButton).toBeInTheDocument();
+	});
+
+	it('shows the feed heading regardless of session state', async () => {
+		render(Page, createDefaultProps());
+
+		const feedHeading = page.getByRole('heading', { name: /latest twits/i });
+		await expect.element(feedHeading).toBeInTheDocument();
 	});
 });
