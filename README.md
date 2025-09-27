@@ -29,9 +29,13 @@ Experimental SvelteKit app for testing the AT Protocol by firing "twits" (statel
 
 ## Environment Variables
 
-| Variable       | Description                                                            | Default           |
-|----------------|------------------------------------------------------------------------|-------------------|
-| `ATP_PDS_URL`  | Base URL of the AT Protocol PDS used for authentication and writes.    | `https://bsky.social` |
+| Variable              | Description                                                                                  | Default                                            |
+|-----------------------|----------------------------------------------------------------------------------------------|----------------------------------------------------|
+| `ATP_PDS_URL`         | Base URL of the AT Protocol PDS used for authentication and writes.                          | `https://bsky.social`                              |
+| `JETSTREAM_ENABLED`   | Set to `true` to connect to Jetstream and ingest remote twits.                               | `false`                                            |
+| `JETSTREAM_ENDPOINT`  | Jetstream WebSocket endpoint.                                                                | `wss://jetstream1.us-east.bsky.network/subscribe`  |
+| `JETSTREAM_CURSOR`    | Optional microsecond cursor to resume Jetstream consumption (overrides the cursor file).     | _unset_                                            |
+| `JETSTREAM_CURSOR_FILE` | File path used to persist the latest Jetstream cursor between restarts.                    | `.jetstream-cursor`                                |
 
 ## Notes
 
@@ -41,3 +45,4 @@ Experimental SvelteKit app for testing the AT Protocol by firing "twits" (statel
 - See [docs/twit-action.md](docs/twit-action.md) for the Phase 2 twit action mechanics and cooldown behaviour.
 - See [docs/feed-generator.md](docs/feed-generator.md) for details on the Phase 3 feed module and API endpoint.
 - See [docs/feed-ui.md](docs/feed-ui.md) for the Phase 4 feed experience and UI behaviour.
+- Jetstream integration is disabled by default. Enable it by exporting `JETSTREAM_ENABLED=true` in your environment.

@@ -1,5 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { twitStore } from '$lib/server/feed/store';
+import { twitRepository } from '$lib/server/feed/store';
 
 const toNumberOrUndefined = (value: string | null): number | undefined => {
 	if (!value) return undefined;
@@ -7,11 +7,11 @@ const toNumberOrUndefined = (value: string | null): number | undefined => {
 	return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-export const GET: RequestHandler = ({ url }) => {
+export const GET: RequestHandler = async ({ url }) => {
 	const limit = toNumberOrUndefined(url.searchParams.get('limit'));
 	const cursor = url.searchParams.get('cursor') ?? undefined;
 
-	const { items, nextCursor } = twitStore.list({ limit, cursor });
+	const { items, nextCursor } = await twitRepository.list({ limit, cursor });
 
 	return json(
 		{

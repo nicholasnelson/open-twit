@@ -25,6 +25,15 @@ export type ListResult = {
 	nextCursor: string | null;
 };
 
+export interface TwitRepository {
+	add(item: TwitFeedItem): Promise<void>;
+	list(options?: ListOptions): Promise<ListResult>;
+}
+
+export interface MutableTwitRepository extends TwitRepository {
+	clear(): Promise<void>;
+}
+
 const clamp = (value: number, min: number, max: number): number =>
 	Math.min(Math.max(value, min), max);
 
@@ -33,11 +42,15 @@ const normalizeLimit = (limit: number | undefined): number => {
 	return clamp(parsed || DEFAULT_LIMIT, 1, MAX_LIMIT);
 };
 
-export class InMemoryTwitStore {
+export class InMemoryTwitRepository implements MutableTwitRepository {
 	#items: StoredTwitFeedItem[] = [];
 	#nextId = 1;
 
-	add(item: TwitFeedItem): void {
+	async add(item: TwitFeedItem): Promise<void> {
+		if (this.#items.some((existing) => existing.uri === item.uri)) {
+			return;
+		}
+
 		const indexedAt = item.indexedAt ?? new Date().toISOString();
 		const record: StoredTwitFeedItem = {
 			...item,
@@ -52,7 +65,7 @@ export class InMemoryTwitStore {
 		}
 	}
 
-	list(options: ListOptions = {}): ListResult {
+	async list(options: ListOptions = {}): Promise<ListResult> {
 		const { cursor, limit } = options;
 		const normalizedLimit = normalizeLimit(limit);
 
@@ -81,10 +94,13 @@ export class InMemoryTwitStore {
 		};
 	}
 
-	clear(): void {
+	async clear(): Promise<void> {
 		this.#items = [];
 		this.#nextId = 1;
 	}
 }
 
-export const twitStore = new InMemoryTwitStore();
+export const createInMemoryTwitRepository = (): MutableTwitRepository =>
+	new InMemoryTwitRepository();
+
+export const twitRepository: TwitRepository = createInMemoryTwitRepository();

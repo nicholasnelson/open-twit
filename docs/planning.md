@@ -34,7 +34,7 @@
   2. Client creates a `com.atweet.twit` record with minimal metadata (`createdAt` timestamp).
   3. Record is written to the user's repo via `agent.com.atproto.repo.createRecord`.
 - **Global Feed Flow**
-  1. Embedded feed generator module subscribes to AT Protocol Firehose or polls for `com.atweet.twit` records.
+  1. Embedded feed generator module subscribes to AT Protocol Jetstream or polls for `com.atweet.twit` records.
   2. Module exposes an HTTPS endpoint conforming to the feed generator spec (cursor-based pagination).
   3. Client requests feed data and renders a list of users and timestamps.
 
@@ -93,7 +93,13 @@
   - Build feed page that fetches from the embedded feed generator endpoint.
   - Display author handle, DID fallback, timestamp, and relative time.
   - Add auto-refresh polling and loading states.
-- **Phase 5: Polish and Deployment**
+- **Phase 5: Jetstream Integration & Persistence**
+  - Replace the in-memory feed store with a repository that persists twits across restarts (SQLite or Redis).
+  - Add a jetstream consumer that subscribes to `com.atproto.sync.subscribeRepos`, filters `com.atweet.twit` records, resolves author handles, and writes them to the repository.
+  - Track jetstream cursor checkpoints to resume consumption without gaps and include reconnect/backoff logic.
+  - Keep the `/api/feed` contract unchanged but back it with the persistent repository.
+  - Expose configuration for jetstream endpoint and repository location via environment variables; provide scripts/docs for running the worker alongside the SvelteKit app.
+- **Phase 6: Polish and Deployment**
   - Apply clean, functional styling and responsive layout improvements.
   - Document local environment configuration and run scripts.
   - Perform smoke tests and manual QA with real AT Protocol accounts.
@@ -110,7 +116,7 @@
 - Basic client-side error logging surfaced in developer console during testing.
 
 ## 11. Risks and Mitigations
-- **Feed Consistency**: Firehose disconnects could cause gaps; mitigate with cursor persistence and backfill on reconnect.
+- **Feed Consistency**: Jetstream disconnects could cause gaps; mitigate with cursor persistence and backfill on reconnect.
 - **Credential Handling**: Storing app passwords client-side is risky; prefer exchanging for short-lived server session tokens.
 - **Rate Abuse**: Without limits, users could spam; add client cooldown and consider server-side throttling if needed.
 - **Lexicon Distribution**: Need to host lexicon JSON so other services recognize it; ensure deployment bundles schema.

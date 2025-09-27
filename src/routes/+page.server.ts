@@ -5,7 +5,7 @@ import {
 	setSessionCookie,
 	toSessionPayload
 } from '$lib/server/session';
-import { twitStore } from '$lib/server/feed/store';
+import { twitRepository } from '$lib/server/feed/store';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => ({
@@ -108,14 +108,14 @@ export const actions: Actions = {
 			setSessionCookie(cookies, payload);
 			locals.session = payload;
 
-			twitStore.add({
-				authorDid: payload.did,
-				authorHandle: payload.handle,
-				cid: response.data.cid,
-				indexedAt: new Date().toISOString(),
-				recordCreatedAt: record.createdAt,
-				uri: response.data.uri
-			});
+				await twitRepository.add({
+					authorDid: payload.did,
+					authorHandle: payload.handle,
+					cid: response.data.cid,
+					indexedAt: new Date().toISOString(),
+					recordCreatedAt: record.createdAt,
+					uri: response.data.uri
+				});
 
 			const cooldownExpiresAt = new Date(Date.now() + TWIT_COOLDOWN_SECONDS * 1000).toISOString();
 
