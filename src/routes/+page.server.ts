@@ -1,19 +1,27 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { createAgent, createAuthenticatedAgent } from '$lib/server/agent';
-import {
-	clearSessionCookie,
-	setSessionCookie,
-	toSessionPayload
-} from '$lib/server/session';
+import { createAuthenticatedAgent } from '$lib/server/agent';
+import { clearSessionCookie, setSessionCookie } from '$lib/server/session';
+import { getOAuthClient } from '$lib/server/auth/oauth-client';
 import { twitRepository } from '$lib/server/feed/store';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => ({
-	session: locals.session
-});
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+	missing_handle: 'Enter your handle or DID before signing in.',
+	oauth_disabled: 'OAuth is not configured for this environment.',
+	callback_failed: 'Unable to complete sign-in. Please try again.',
+	missing_redirect: 'OAuth redirect URI is not configured. Check your environment variables.'
+};
 
-const isNonEmptyString = (value: unknown): value is string =>
-	typeof value === 'string' && value.trim().length > 0;
+const mapAuthError = (code: string | null): string | null => {
+	if (!code) return null;
+	return AUTH_ERROR_MESSAGES[code] ?? 'Failed to sign in. Please try again.';
+};
+
+export const load: PageServerLoad = async ({ locals, url }) => ({
+	session: locals.session,
+	authError: mapAuthError(url.searchParams.get('authError')),
+	authHandle: url.searchParams.get('handle')?.trim() ?? ''
+});
 
 const TWIT_COLLECTION = 'com.atweet.twit';
 const TWIT_COOLDOWN_SECONDS = 5;
@@ -25,49 +33,20 @@ const isUnauthorizedError = (error: unknown): boolean =>
 	typeof (error as { status?: number }).status === 'number' &&
 	(error as { status: number }).status === 401;
 
+
 export const actions: Actions = {
-	login: async ({ request, cookies, locals }) => {
-		const formData = await request.formData();
-		const identifier = formData.get('identifier');
-		const password = formData.get('password');
-
-		if (!isNonEmptyString(identifier) || !isNonEmptyString(password)) {
-			return fail(400, {
-				formType: 'login',
-				message: 'Handle or DID and an app password are required.',
-				identifier: isNonEmptyString(identifier) ? identifier : ''
-			});
-		}
-
-		const agent = createAgent();
-
-		try {
-			await agent.login({ identifier, password });
-			const session = agent.session;
-
-			if (!session) {
-				return fail(500, {
-					formType: 'login',
-					message: 'Login succeeded but no session was returned. Please try again.',
-					identifier
-				});
-			}
-
-			const payload = toSessionPayload(session, agent.serviceUrl.toString());
-			setSessionCookie(cookies, payload);
-			locals.session = payload;
-
-			return redirect(303, '/');
-		} catch (error) {
-			console.error('Login failed', error);
-			return fail(400, {
-				formType: 'login',
-				message: 'Login failed. Double-check your handle and app password.',
-				identifier
-			});
-		}
-	},
 	logout: async ({ cookies, locals }) => {
+		const session = locals.session;
+
+		if (session?.mode === 'oauth') {
+			try {
+				const client = getOAuthClient();
+				await client.revoke(session.did);
+			} catch (error) {
+				console.warn('Failed to revoke OAuth session', error);
+			}
+		}
+
 		clearSessionCookie(cookies);
 		locals.session = null;
 
@@ -85,7 +64,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const agent = await createAuthenticatedAgent(session);
+			const { agent, updatedSession } = await createAuthenticatedAgent(session);
 			const record = {
 				createdAt: new Date().toISOString()
 			};
@@ -96,21 +75,18 @@ export const actions: Actions = {
 				record
 			});
 
-			if (!agent.session) {
-				return fail(500, {
-					formType: 'twit',
-					twitStatus: 'error',
-					message: 'Twit succeeded but no session was returned. Please sign in again.'
-				});
+			if (updatedSession) {
+				setSessionCookie(cookies, updatedSession);
+				locals.session = updatedSession;
+			} else {
+				locals.session = session;
 			}
 
-			const payload = toSessionPayload(agent.session, agent.serviceUrl.toString());
-			setSessionCookie(cookies, payload);
-			locals.session = payload;
+			const activeSession = updatedSession ?? session;
 
-				await twitRepository.add({
-					authorDid: payload.did,
-					authorHandle: payload.handle,
+			await twitRepository.add({
+				authorDid: activeSession.did,
+				authorHandle: activeSession.handle,
 					cid: response.data.cid,
 					indexedAt: new Date().toISOString(),
 					recordCreatedAt: record.createdAt,

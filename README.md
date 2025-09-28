@@ -29,18 +29,25 @@ Experimental SvelteKit app for testing the AT Protocol by firing "twits" (statel
 
 ## Environment Variables
 
-| Variable              | Description                                                                                  | Default                                            |
-|-----------------------|----------------------------------------------------------------------------------------------|----------------------------------------------------|
-| `ATP_PDS_URL`         | Base URL of the AT Protocol PDS used for authentication and writes.                          | `https://bsky.social`                              |
-| `JETSTREAM_ENABLED`   | Set to `true` to connect to Jetstream and ingest remote twits.                               | `false`                                            |
-| `JETSTREAM_ENDPOINT`  | Jetstream WebSocket endpoint.                                                                | `wss://jetstream1.us-east.bsky.network/subscribe`  |
-| `JETSTREAM_CURSOR`    | Optional microsecond cursor to resume Jetstream consumption (overrides the cursor file).     | _unset_                                            |
-| `JETSTREAM_CURSOR_FILE` | File path used to persist the latest Jetstream cursor between restarts.                    | `.jetstream-cursor`                                |
+| Variable                | Description                                                                                  | Default                                            |
+|-------------------------|----------------------------------------------------------------------------------------------|----------------------------------------------------|
+| `ATP_PDS_URL`           | Base URL of the AT Protocol PDS used for authentication and writes.                          | `https://bsky.social`                              |
+| `JETSTREAM_ENABLED`     | Set to `true` to connect to Jetstream and ingest remote twits.                               | `false`                                            |
+| `JETSTREAM_ENDPOINT`    | Jetstream WebSocket endpoint.                                                                | `wss://jetstream1.us-east.bsky.network/subscribe`  |
+| `JETSTREAM_CURSOR`      | Optional microsecond cursor to resume Jetstream consumption (overrides the cursor file).     | _unset_                                            |
+| `JETSTREAM_CURSOR_FILE` | File path used to persist the latest Jetstream cursor between restarts.                      | `.jetstream-cursor`                                |
+| `ATPROTO_OAUTH_CLIENT_ID` | Absolute URL hosting your OAuth client metadata (e.g. `http://localhost:5173/client-metadata.json`). | _required_ |
+| `ATPROTO_OAUTH_REDIRECT_URI` | Comma-separated list of redirect URIs registered with the provider (first entry is used locally). | `http://localhost:5173/auth/callback` |
+| `ATPROTO_OAUTH_CLIENT_NAME`, `ATPROTO_OAUTH_CLIENT_URI`, `ATPROTO_OAUTH_POLICY_URI`, `ATPROTO_OAUTH_TOS_URI`, `ATPROTO_OAUTH_LOGO_URI` | Optional metadata fields exposed on `client-metadata.json`. | _unset_ |
+| `ATPROTO_OAUTH_SCOPE`   | OAuth scope requested during sign-in.                                                        | `atproto transition:generic`                       |
+| `ATPROTO_OAUTH_ALLOW_HTTP` | Allow HTTP redirect/issuer URLs (enable for local development only).                     | `false`                                            |
+| `ATPROTO_OAUTH_STORE_FILE` | SQLite file for persisting OAuth state/session data.                                      | `.data/oauth-store.sqlite`                         |
 
 ## Notes
 
 - The `static/lexicons/com.atweet.twit.json` file defines the custom `com.atweet.twit` record schema and is automatically available from `/lexicons/com.atweet.twit.json` when the dev server is running.
-- Use AT Protocol app passwords when signing in; the app never stores the raw password, only the resulting session tokens in an HTTP-only cookie during development.
+- OAuth sign-in keeps credentials off the browser: state/tokens live in the SQLite-backed OAuth store, and cookies contain only DID/handle metadata.
+- `client-metadata.json` is served from the SvelteKit app using the configured environment variables, so you can point the OAuth `client_id` to your running instance during development.
 - See [docs/login-flow.md](docs/login-flow.md) for a step-by-step explanation of the authentication flow.
 - See [docs/twit-action.md](docs/twit-action.md) for the Phase 2 twit action mechanics and cooldown behaviour.
 - See [docs/feed-generator.md](docs/feed-generator.md) for details on the Phase 3 feed module and API endpoint.

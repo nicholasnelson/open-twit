@@ -10,6 +10,7 @@ const createDefaultProps = () => ({
 });
 
 const createSession = (overrides: Partial<Session> = {}): Session => ({
+	mode: 'legacy',
 	did: 'did:plc:example',
 	handle: 'example.test',
 	accessJwt: 'access-token',
@@ -37,7 +38,7 @@ describe('/+page.svelte', () => {
 		const heading = page.getByRole('heading', { name: 'Twit playground' });
 		await expect.element(heading).toBeInTheDocument();
 
-		const signInButton = page.getByRole('button', { name: 'Sign in' });
+		const signInButton = page.getByRole('button', { name: 'Sign in with Bluesky' });
 		await expect.element(signInButton).toBeInTheDocument();
 	});
 

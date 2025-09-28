@@ -7,7 +7,8 @@ import {
 	SESSION_MAX_AGE_SECONDS
 } from './env';
 
-export type Session = {
+export type LegacySession = {
+	mode: 'legacy';
 	did: string;
 	handle: string;
 	accessJwt: string;
@@ -15,12 +16,31 @@ export type Session = {
 	service: string;
 };
 
-const isValidSession = (value: Partial<Session>): value is Session =>
+export type OAuthSessionPayload = {
+	mode: 'oauth';
+	did: string;
+	handle: string;
+	service: string;
+};
+
+export type Session = LegacySession | OAuthSessionPayload;
+
+const isLegacySession = (value: Partial<Session>): value is LegacySession =>
+	value?.mode === 'legacy' &&
 	typeof value.did === 'string' &&
 	typeof value.handle === 'string' &&
 	typeof value.accessJwt === 'string' &&
 	typeof value.refreshJwt === 'string' &&
 	typeof value.service === 'string';
+
+const isOAuthSessionPayload = (value: Partial<Session>): value is OAuthSessionPayload =>
+	value?.mode === 'oauth' &&
+	typeof value.did === 'string' &&
+	typeof value.handle === 'string' &&
+	typeof value.service === 'string';
+
+const isValidSession = (value: Partial<Session>): value is Session =>
+	isLegacySession(value) || isOAuthSessionPayload(value);
 
 const serialize = (session: Session): string => JSON.stringify(session);
 
@@ -49,12 +69,22 @@ const normalizeServiceUrl = (value: string): string => value.replace(/\/$/, '');
 export const toSessionPayload = (
 	session: AtpSessionData,
 	serviceUrl: string = ATP_PDS_URL
-): Session => ({
+): LegacySession => ({
+	mode: 'legacy',
 	did: session.did,
 	handle: session.handle,
 	accessJwt: session.accessJwt,
 	refreshJwt: session.refreshJwt,
 	service: normalizeServiceUrl(serviceUrl)
+});
+
+export const createOAuthSessionPayload = (
+	params: Pick<OAuthSessionPayload, 'did' | 'handle' | 'service'>
+): OAuthSessionPayload => ({
+	mode: 'oauth',
+	did: params.did,
+	handle: params.handle,
+	service: normalizeServiceUrl(params.service)
 });
 
 export const setSessionCookie = (cookies: Cookies, session: Session): void => {

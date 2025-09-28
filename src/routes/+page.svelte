@@ -5,12 +5,8 @@
 
 	type PageData = {
 		session: Session | null;
-	};
-
-	type LoginFormState = {
-		formType: 'login';
-		message?: string;
-		identifier?: string;
+		authError: string | null;
+		authHandle: string;
 	};
 
 	type TwitFormState = {
@@ -22,7 +18,7 @@
 		twitUri?: string;
 	};
 
-	type FormState = LoginFormState | TwitFormState | null;
+	type FormState = TwitFormState | null;
 
 	let { data, form } = $props<{ data: PageData; form?: FormState }>();
 
@@ -83,7 +79,7 @@
 		<div class="flex-1 space-y-4">
 			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Twit playground</h1>
 			<p class="text-sm text-slate-300 md:text-base">
-				Authenticate with your AT Protocol handle using an app password to start twiting.
+				Sign in with your Bluesky account to start twiting. We will redirect you to Bluesky to approve the connection.
 			</p>
 
 		{#if data.session}
@@ -108,10 +104,6 @@
 					</button>
 				</form>
 			</div>
-		{:else}
-			<p class="text-xs text-slate-500">
-				Need an app password? Generate one from your Bluesky account settings under "App passwords".
-			</p>
 		{/if}
 		</div>
 
@@ -166,39 +158,25 @@
 					</form>
 				</div>
 			{:else}
-				<form method="post" action="?/login" class="space-y-6 rounded-lg border border-slate-800 bg-slate-900 p-6 shadow-lg shadow-slate-950/40">
+				<form method="get" action="/auth/login" class="space-y-6 rounded-lg border border-slate-800 bg-slate-900 p-6 shadow-lg shadow-slate-950/40">
 					<div class="space-y-2">
-						<label for="identifier" class="block text-sm font-medium text-slate-200">
+						<label for="handle" class="block text-sm font-medium text-slate-200">
 							Handle or DID
 						</label>
-					<input
-						type="text"
-						id="identifier"
-						name="identifier"
-						required
-						autocomplete="username"
-						value={form?.formType === 'login' ? form.identifier ?? '' : ''}
-						class="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 shadow-inner shadow-slate-950/40 focus:border-slate-200 focus:outline-none"
-					/>
-					</div>
-
-					<div class="space-y-2">
-						<label for="password" class="block text-sm font-medium text-slate-200">
-							App password
-						</label>
 						<input
-							type="password"
-							id="password"
-							name="password"
+							type="text"
+							id="handle"
+							name="handle"
 							required
-							autocomplete="current-password"
+							autocomplete="username"
+							value={data.authHandle}
 							class="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 shadow-inner shadow-slate-950/40 focus:border-slate-200 focus:outline-none"
 						/>
 					</div>
 
-					{#if form?.formType === 'login' && form.message}
+					{#if data.authError}
 						<p class="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-sm text-red-300">
-							{form.message}
+							{data.authError}
 						</p>
 					{/if}
 
@@ -206,8 +184,12 @@
 						type="submit"
 						class="w-full rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-100"
 					>
-						Sign in
+						Sign in with Bluesky
 					</button>
+
+					<p class="text-xs text-slate-500">
+						After approval, the browser only stores your DID and handle—OAuth tokens stay on the server.
+					</p>
 				</form>
 			{/if}
 		</div>

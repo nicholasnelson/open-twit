@@ -8,11 +8,17 @@ declare global {
 
 		interface PageData {
 			session: Session | null;
+			authError: string | null;
+			authHandle: string;
 		}
 
 		interface ActionData {
+			formType: 'twit';
+			twitStatus?: 'success' | 'error';
 			message?: string;
-			identifier?: string;
+			twitTimestamp?: string;
+			cooldownExpiresAt?: string;
+			twitUri?: string;
 		}
 	}
 }

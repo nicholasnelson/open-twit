@@ -100,6 +100,13 @@
   - Keep the `/api/feed` contract unchanged but back it with the persistent repository.
   - Expose configuration for jetstream endpoint and repository location via environment variables; provide scripts/docs for running the worker alongside the SvelteKit app.
 - **Phase 6: Polish and Deployment**
+  - **Phase 6.1: Auth Improvement (OAuth)**
+    - Adopt the `@atproto/oauth-client-node` package and register an OAuth client with the chosen PDS/AppView.
+    - Implement a SvelteKit server handler (`/auth/login`) that requests an authorization URL from the OAuth client and redirects the browser to the provider's authorization endpoint.
+    - Add a callback route (`/auth/callback`) that delegates state validation to the OAuth client, exchanges the returned code for tokens, and persists the resulting ATProto session (server-side store + httpOnly cookie).
+    - Update session management utilities to work with OAuth-issued tokens, including refresh flows and logout revocation.
+    - Replace the form-based login UI with a "Sign in with Bluesky" button that kicks off the redirect sequence while preserving existing error/success feedback.
+    - Cover the new auth flow with integration tests (mocking the OAuth client) and document required environment variables (`ATPROTO_OAUTH_CLIENT_ID`, `ATPROTO_OAUTH_REDIRECT_URI`, metadata fields) in `docs/auth-oauth.md` and the README.
   - Apply clean, functional styling and responsive layout improvements.
   - Document local environment configuration and run scripts.
   - Perform smoke tests and manual QA with real AT Protocol accounts.

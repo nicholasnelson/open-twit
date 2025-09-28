@@ -71,3 +71,56 @@ export const JETSTREAM_ENDPOINT = sanitizeWebsocketUrl(
 export const JETSTREAM_INITIAL_CURSOR = parseCursor(env.JETSTREAM_CURSOR);
 
 export const JETSTREAM_CURSOR_FILE = resolveCursorFile(env.JETSTREAM_CURSOR_FILE);
+
+const toOptionalString = (value: string | undefined): string | null => {
+	if (typeof value !== 'string') return null;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : null;
+};
+
+const resolveStoreFile = (value: string | undefined, fallback: string): string => {
+	const resolved = toOptionalString(value);
+	if (!resolved) return resolvePath(process.cwd(), fallback);
+	return isAbsolute(resolved) ? resolved : resolvePath(process.cwd(), resolved);
+};
+
+export const OAUTH_CLIENT_NAME = toOptionalString(env.ATPROTO_OAUTH_CLIENT_NAME);
+export const OAUTH_CLIENT_URI = toOptionalString(env.ATPROTO_OAUTH_CLIENT_URI);
+export const OAUTH_POLICY_URI = toOptionalString(env.ATPROTO_OAUTH_POLICY_URI);
+export const OAUTH_TOS_URI = toOptionalString(env.ATPROTO_OAUTH_TOS_URI);
+export const OAUTH_LOGO_URI = toOptionalString(env.ATPROTO_OAUTH_LOGO_URI);
+
+const rawRedirectSetting = toOptionalString(env.ATPROTO_OAUTH_REDIRECT_URI);
+export const OAUTH_SCOPE = toOptionalString(env.ATPROTO_OAUTH_SCOPE) ?? 'atproto transition:generic';
+
+const resolvePrimaryRedirectUri = (value: string | null): string | null => {
+	if (!value) return null;
+	return value
+		.split(',')
+		.map((entry) => entry.trim())
+		.find((entry) => entry.length > 0) ?? null;
+};
+
+const primaryRedirectUri = resolvePrimaryRedirectUri(rawRedirectSetting);
+const DEFAULT_OAUTH_CLIENT_ID = 'http://localhost';
+
+const buildDevClientId = (): string => {
+	const params = new URLSearchParams();
+	params.set('scope', OAUTH_SCOPE);
+	if (primaryRedirectUri) {
+		params.set('redirect_uri', primaryRedirectUri);
+	}
+	return `${DEFAULT_OAUTH_CLIENT_ID}?${params.toString()}`;
+};
+
+const rawClientId = toOptionalString(env.ATPROTO_OAUTH_CLIENT_ID);
+const resolvedClientId = rawClientId ?? DEFAULT_OAUTH_CLIENT_ID;
+
+export const OAUTH_CLIENT_ID =
+	resolvedClientId === DEFAULT_OAUTH_CLIENT_ID ? buildDevClientId() : resolvedClientId;
+
+export const OAUTH_REDIRECT_URI = rawRedirectSetting;
+export const OAUTH_ALLOW_HTTP = parseBoolean(env.ATPROTO_OAUTH_ALLOW_HTTP, false);
+export const OAUTH_STORE_FILE = resolveStoreFile(env.ATPROTO_OAUTH_STORE_FILE, '.data/oauth-store.sqlite');
+
+export const OAUTH_ENABLED = Boolean(OAUTH_CLIENT_ID && OAUTH_REDIRECT_URI);

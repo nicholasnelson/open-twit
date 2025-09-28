@@ -3,47 +3,46 @@
 This document describes how atweet authenticates a user against the AT Protocol and how the resulting session is persisted across requests.
 
 ## Components
-- `src/routes/+page.svelte`: Renders the login form and shows session state returned by the server.
-- `src/routes/+page.server.ts`: Implements the `login` and `logout` form actions and exposes the current session to the page load.
-- `src/lib/server/agent.ts`: Creates a configured `BskyAgent` pointed at the target Personal Data Server (PDS).
-- `src/lib/server/session.ts`: Serializes session data, stores it in an HTTP-only cookie, and reads it back on subsequent requests.
-- `src/hooks.server.ts`: Loads the session from the cookie into `event.locals` before route handlers run.
-- `.env`: Provides `ATP_PDS_URL`, the base URL of the PDS to authenticate against during development.
+- `src/routes/+page.svelte`: Renders the handle input, displays callback errors, and shows the authenticated summary when a session is present.
+- `src/routes/+page.server.ts`: Exposes the session to the page load, triggers OAuth-backed posting via `createAuthenticatedAgent`, and revokes tokens on logout.
+- `src/routes/auth/login/+server.ts`: Creates the OAuth authorization URL (state handled by the client library) and redirects the browser to Bluesky.
+- `src/routes/auth/callback/+server.ts`: Lets the client library validate state, exchanges the authorization code, persists the session cookie, and handles error redirects.
+- `src/lib/server/auth/oauth-client.ts` & `oauth-store.ts`: Instantiate `NodeOAuthClient` with SQLite-backed state/session storage.
+- `src/lib/server/session.ts`: Serializes both legacy (app-password) and OAuth session payloads into the `atweet.session` cookie.
+- `src/hooks.server.ts`: Hydrates `event.locals.session` from the cookie for every request.
+- `.env`: Supplies `ATPROTO_OAUTH_CLIENT_ID`, redirect URIs, and related OAuth metadata.
 
 ## Happy Path Sequence
 1. **Initial page load**
-   - `src/hooks.server.ts` invokes `getSessionFromCookies`, hydrating `event.locals.session` from the `atweet.session` cookie if it exists.
-   - The root page server load (`src/routes/+page.server.ts:6`) returns `locals.session` to the Svelte component.
-   - `src/routes/+page.svelte` either renders the signed-in summary (session found) or the login form (no session).
+   - `src/hooks.server.ts` loads `atweet.session` (if present) into `event.locals.session`.
+   - `src/routes/+page.server.ts` returns `locals.session`, any auth error codes, and the last submitted handle to the Svelte page.
+   - `src/routes/+page.svelte` renders either the session summary (authenticated) or the OAuth handle form (guest).
 
-2. **Submitting credentials**
-   - The login form posts to the `?/login` action (`src/routes/+page.server.ts:13`).
-   - The action validates that both `identifier` (handle or DID) and `password` (app password) are non-empty strings. Invalid input returns a `fail(400, …)` payload that keeps the user on the form with an inline error message.
+2. **Starting OAuth**
+   - Submitting the handle issues a `GET /auth/login?handle=example.bsky.social` request.
+   - The login endpoint checks that OAuth is enabled, asks the client for an authorization URL (which generates/records state internally), and redirects the browser to Bluesky.
 
-3. **Authenticating with Bluesky**
-   - A `BskyAgent` instance from `createAgent` (`src/lib/server/agent.ts:3`) targets the configured PDS URL (`ATP_PDS_URL`).
-   - `agent.login({ identifier, password })` exchanges the credentials for an ATP session.
-   - If no session object is returned, the action reports a 500-level error and asks the user to retry.
+3. **Callback Processing**
+   - After the user approves the request, Bluesky redirects to `/auth/callback?code=…&state=…`.
+   - `NodeOAuthClient.callback` validates the state/PKCE values it generated earlier, returning an `OAuthSession` on success. We instantiate an `Agent`, fetch the user handle via `agent.com.atproto.server.getSession()`, and persist a cookie with `{ mode: 'oauth', did, handle, service }`.
+   - `locals.session` is set for the current request, and the handler issues a 303 redirect back to `/`.
 
-4. **Persisting the session**
-   - The returned `AtpSessionData` is normalized via `toSessionPayload` (`src/lib/server/session.ts:29`), capturing DID, handle, JWTs, and the normalized service URL.
-   - `setSessionCookie` stores the JSON payload into the HTTP-only `atweet.session` cookie with `SameSite=lax`, `Secure` (in production), and a seven-day max age (`SESSION_MAX_AGE_SECONDS`).
-   - `locals.session` is set so the current response can render the authenticated state without waiting for another request.
-   - The action redirects with HTTP 303 to `/`, ensuring the browser performs a GET and does not resubmit credentials on refresh.
+4. **Authenticated requests**
+   - When the user triggers the twit action, `createAuthenticatedAgent` restores the OAuth session from the SQLite store and returns an `Agent`. Tokens are refreshed automatically by the OAuth client when near expiry.
+   - Legacy sessions (kept for development) still resume via app passwords; their cookies are refreshed with new JWTs after each twit.
 
-5. **Subsequent requests**
-   - On every new request, `hooks.server` rehydrates `event.locals.session` from the cookie. If deserialization fails, the cookie is cleared, forcing re-authentication.
-   - The presence of `locals.session` enables server routes and the root page to gate features on authentication status without revalidating credentials each time.
+5. **Logout**
+   - Posting the logout form hits the `?/logout` action. OAuth sessions call `oauthClient.revoke(session.did)` before clearing cookies; legacy sessions simply drop the cookie.
+   - The action redirects with HTTP 303 to `/`.
 
 ## Error Handling
-- Login failures (bad handle/app password, network issues, or rejected credentials) bubble through the catch block in `login`, log to the server console, and surface a generic 400-level message to the user.
-- Missing or malformed session cookies are automatically deleted (`getSessionFromCookies`), preventing stale or tampered data from persisting.
-
-## Logout Flow
-- The logout form posts to the `?/logout` action (`src/routes/+page.server.ts:48`).
-- `clearSessionCookie` removes the `atweet.session` cookie, and `locals.session` is set to `null` for the current request.
-- The action redirects with HTTP 303 to `/`, returning the UI to the unauthenticated state.
+- Invalid or missing handle input results in `/?authError=missing_handle`.
+- State mismatches or callback failures clear cookies and redirect with descriptive query parameters; the page surfaces the message above the sign-in form.
+- OAuth session restore failures throw an error tagged with `status: 401`, allowing the twit action to clear cookies and prompt the user to re-authenticate.
+- `getSessionFromCookies` invalidates malformed JSON/corrupted cookies proactively.
 
 ## Configuration Notes
-- `ATP_PDS_URL` (default `https://bsky.social`) controls which PDS the `BskyAgent` uses. Override it in `.env` for local or self-hosted PDS instances.
-- `SESSION_COOKIE_NAME` and `SESSION_MAX_AGE_SECONDS` live in `src/lib/server/env.ts` and can be customized if the project’s session requirements change.
+- `ATPROTO_OAUTH_CLIENT_ID` must point at a reachable `client-metadata.json` endpoint (the repository serves one automatically).
+- `ATPROTO_OAUTH_REDIRECT_URI` should list every redirect URI registered with Bluesky (comma-separated). The first entry is used by `/auth/login`.
+- `ATPROTO_OAUTH_STORE_FILE` keeps OAuth state/session data in SQLite; ensure the process can write to the directory.
+- `SESSION_COOKIE_NAME` and `SESSION_MAX_AGE_SECONDS` still live in `src/lib/server/env.ts` for centralized tweaking.
