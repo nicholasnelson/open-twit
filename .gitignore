@@ -24,3 +24,6 @@ vite.config.ts.timestamp-*
 
 # jetstream cursor
 .jetstream-cursor
+
+# persisted data
+.data

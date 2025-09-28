@@ -43,6 +43,7 @@
 	},
 	"dependencies": {
 		"@atproto/api": "^0.16.11",
-		"@skyware/jetstream": "^0.2.5"
+		"@skyware/jetstream": "^0.2.5",
+		"better-sqlite3": "^9.4.5"
 	}
 }
