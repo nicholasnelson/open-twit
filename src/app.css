@@ -1,1 +1,76 @@
 @import 'tailwindcss';
+
+@layer base {
+	:root {
+		color-scheme: dark;
+		--app-bg-primary: 15 23 42;
+		--app-bg-secondary: 9 9 20;
+		--app-accent: 56 189 248;
+		--font-sans: 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif;
+		--font-mono: 'JetBrains Mono', 'SFMono-Regular', ui-monospace, monospace;
+	}
+
+	body {
+		@apply min-h-screen bg-slate-950 text-slate-100 antialiased;
+		font-family: var(--font-sans);
+		background:
+			radial-gradient(120% 120% at 20% 20%, rgba(56, 189, 248, 0.12), transparent 60%),
+			radial-gradient(100% 100% at 80% 0%, rgba(124, 58, 237, 0.14), transparent 55%),
+			radial-gradient(120% 120% at 50% 100%, rgba(34, 197, 94, 0.08), transparent 60%),
+			rgb(var(--app-bg-secondary));
+	}
+
+	body::before {
+		content: '';
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		pointer-events: none;
+		background: radial-gradient(80% 80% at 50% 0%, rgba(148, 163, 184, 0.08), transparent 65%);
+		z-index: -1;
+	}
+
+	a {
+		@apply transition-colors duration-150 ease-out;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: var(--font-sans);
+	}
+
+	code,
+	pre,
+	kbd {
+		font-family: var(--font-mono);
+	}
+
+	::selection {
+		background-color: rgba(56, 189, 248, 0.25);
+		color: rgb(241, 245, 249);
+	}
+}
+
+@layer utilities {
+	.glass-card {
+		@apply rounded-2xl border border-white/10 bg-slate-900/70 shadow-xl shadow-black/30 backdrop-blur;
+	}
+
+	.button-primary {
+		@apply inline-flex items-center justify-center rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-sky-500/25 transition hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.button-secondary {
+		@apply inline-flex items-center justify-center rounded-xl border border-white/15 px-5 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-white/30 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/30 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.badge {
+		@apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200;
+	}
+}

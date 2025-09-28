@@ -117,6 +117,7 @@
 	};
 
 	onMount(() => {
+		console.log("Mounted");
 		loadInitial();
 
 		refreshTimer = setInterval(refreshLatest, REFRESH_INTERVAL_MS);
@@ -139,69 +140,40 @@
 	const formatAuthor = (item: FeedItem): string => item.author.handle || item.author.did;
 </script>
 
-<section class="space-y-4">
-	<div class="flex items-center justify-between">
-		<h2 class="text-xl font-semibold text-slate-100">Latest twits</h2>
-		<button
-			type="button"
-			onclick={refreshLatest}
-			disabled={isLoading}
-			class="rounded-md border border-slate-700 px-3 py-1 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-		>
-			Refresh
-		</button>
+<section class="surface-card mx-auto w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl space-y-6">
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<h2 class="sr-only">Timeline</h2>
 	</div>
 
 	{#if isInitialLoading}
-		<div class="space-y-3">
-			<div class="h-24 animate-pulse rounded-lg bg-slate-800/60"></div>
-			<div class="h-24 animate-pulse rounded-lg bg-slate-800/60"></div>
+		<div class="space-y-4">
+			<div class="h-24 animate-pulse rounded-xl bg-slate-800/50"></div>
+			<div class="h-24 animate-pulse rounded-xl bg-slate-800/50"></div>
 		</div>
 	{:else if errorMessage}
-		<div class="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+		<div class="rounded-xl border border-red-500/40 bg-red-500/15 p-5 text-sm text-red-200">
 			<p>{errorMessage}</p>
-			<button
-				type="button"
-				onclick={handleRetry}
-				class="mt-2 rounded-md border border-red-300/40 px-3 py-1 text-xs text-red-100 transition hover:bg-red-500/20"
-			>
+			<button type="button" onclick={handleRetry} class="button-secondary mt-3 px-4 py-2 text-xs">
 				Retry
 			</button>
 		</div>
 	{:else if isEmpty}
-		<p class="rounded-lg border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-300">
-			No twits yet. Sign in and fire the first one!
-		</p>
+		<div class="rounded-xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
+			No twits yet—be the first to spark the timeline.
+		</div>
 	{:else}
 		<ul class="space-y-3">
 			{#each items as item (item.uri)}
-				<li class="rounded-lg border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-200">
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<div>
-							<p class="text-base font-medium text-slate-100">{formatAuthor(item)}</p>
-							<p class="text-xs text-slate-500">{item.author.did}</p>
-						</div>
-						<div class="text-right text-xs text-slate-400">
-							<p>{formatRelativeTime(item.record.createdAt, currentTime)}</p>
-							<p class="font-mono text-[10px] text-slate-600">{formatAbsoluteTime(item.record.createdAt)}</p>
-						</div>
-					</div>
-					<div class="mt-3 space-y-1 text-xs text-slate-400">
-						<p class="break-all font-mono text-[11px] text-slate-500">URI: {item.uri}</p>
-						<p class="break-all font-mono text-[11px] text-slate-600">CID: {item.cid}</p>
-					</div>
+				<li class="flex flex-col items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/70 p-5 text-center text-sm text-slate-200">
+					<span class="font-semibold text-slate-100">@{formatAuthor(item)} <span class="font-normal text-slate-400">twitted!</span></span>
+					<span class="text-xs text-slate-500">{formatRelativeTime(item.record.createdAt, currentTime)}</span>
 				</li>
 			{/each}
 		</ul>
 
 		{#if hasMore}
 			<div class="pt-2">
-				<button
-					type="button"
-					onclick={loadMore}
-					disabled={isLoadingMore}
-					class="w-full rounded-md border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-				>
+				<button type="button" onclick={loadMore} disabled={isLoadingMore} class="button-secondary w-full">
 					{#if isLoadingMore}
 						Loading…
 					{:else}

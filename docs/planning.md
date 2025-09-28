@@ -107,9 +107,23 @@
     - Update session management utilities to work with OAuth-issued tokens, including refresh flows and logout revocation.
     - Replace the form-based login UI with a "Sign in with Bluesky" button that kicks off the redirect sequence while preserving existing error/success feedback.
     - Cover the new auth flow with integration tests (mocking the OAuth client) and document required environment variables (`ATPROTO_OAUTH_CLIENT_ID`, `ATPROTO_OAUTH_REDIRECT_URI`, metadata fields) in `docs/auth-oauth.md` and the README.
+  - **Phase 6.2: Production Styling & UX Polish**
+    - Establish a cohesive visual language: define typography scale (primary sans + mono accent), spacing system, and a dark-first palette with accessible contrast and accent hues for actions/alerts.
+    - Redesign the layout with a persistent header (logo, environment badge, quick links) and a responsive grid that stacks vertically on mobile while preserving the two-column experience on desktop.
+    - Upgrade the authentication panel to a card with hero copy, contextual illustration/iconography, and clearly delineated call-to-action buttons/states.
+    - Refresh the feed presentation: card-based items with author avatar/initials, handle + DID meta, time stamps, and subtle dividers; add skeleton/loading rows and empty-state messaging.
+    - Standardize UI primitives (buttons, inputs, badges, alerts, toasts) with shared tokens and focus/hover states that pass WCAG contrast and keyboard navigation requirements.
+    - Introduce motion affordances sparingly (e.g., fade/slide on form submit, skeleton shimmer, hover lifts) while respecting reduced-motion preferences.
+    - Harden responsive behavior for breakpoints (≤640px, 641–1024px, ≥1025px) including typography scaling, padding adjustments, and sticky action areas on small screens.
+    - Integrate accessibility enhancements: semantic headings hierarchy, aria-live for auth/twit status, larger touch targets, visible focus rings, and color-blind-safe status indicators.
+    - Document design tokens and component guidelines (spacing, colors, fonts, elevations) to support future maintenance and team onboarding.
   - Apply clean, functional styling and responsive layout improvements.
   - Document local environment configuration and run scripts.
   - Perform smoke tests and manual QA with real AT Protocol accounts.
+- **Future Enhancements**
+  - Replace feed polling with push-based updates (Jetstream subscription or SSE) and reconcile local cache updates to minimize network churn.
+  - Add "retwit" support, including UI controls, optimistic feedback, and Jetstream mirroring of retwit events.
+  - Resolve and display user-friendly names by hydrating profile data (fallback to handle/DID); cache profile lookups to reduce fetch overhead.
 
 ## 9. Testing Strategy
 - **Unit Tests**: Utility functions (datetime formatting, cooldown logic) covered with Jest or equivalent.
