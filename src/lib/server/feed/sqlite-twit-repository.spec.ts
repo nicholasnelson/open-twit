@@ -82,6 +82,10 @@ describe('SqliteTwitRepository', () => {
 		expect(secondPage.items).toHaveLength(2);
 		expect(secondPage.items[0].cid).toBe('cid-1');
 		expect(secondPage.items[1].cid).toBe('cid-0');
-		expect(secondPage.nextCursor).toBeNull();
+		expect(secondPage.nextCursor).not.toBeNull();
+
+		const emptyPage = await repository.list({ cursor: secondPage.nextCursor ?? undefined });
+		expect(emptyPage.items).toHaveLength(0);
+		expect(emptyPage.nextCursor).toBeNull();
 	});
 });

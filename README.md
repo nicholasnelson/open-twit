@@ -52,4 +52,5 @@ Experimental SvelteKit app for testing the AT Protocol by firing "twits" (statel
 - See [docs/twit-action.md](docs/twit-action.md) for the Phase 2 twit action mechanics and cooldown behaviour.
 - See [docs/feed-generator.md](docs/feed-generator.md) for details on the Phase 3 feed module and API endpoint.
 - See [docs/feed-ui.md](docs/feed-ui.md) for the Phase 4 feed experience and UI behaviour.
+- See [docs/operations.md](docs/operations.md) for Jetstream and SQLite operational guidance.
 - Jetstream integration is disabled by default. Enable it by exporting `JETSTREAM_ENABLED=true` in your environment.

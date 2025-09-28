@@ -32,30 +32,35 @@ describe('/+page.svelte', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('renders the login form when no session exists', async () => {
+	it('renders guest login affordances when no session exists', async () => {
 		render(Page, createDefaultProps());
 
-		const heading = page.getByRole('heading', { name: 'Twit playground' });
-		await expect.element(heading).toBeInTheDocument();
+		const logInButton = page.getByRole('button', { name: 'Log in' });
+		await expect.element(logInButton).toBeInTheDocument();
 
-		const signInButton = page.getByRole('button', { name: 'Sign in with Bluesky' });
-		await expect.element(signInButton).toBeInTheDocument();
+		const twitButton = page.getByRole('button', { name: 'TWIT' });
+		await expect.element(twitButton).toBeInTheDocument();
+
+		await logInButton.click();
+
+		const continueButton = page.getByRole('button', { name: 'Continue with Bluesky' });
+		await expect.element(continueButton).toBeInTheDocument();
 	});
 
 	it('renders the twit button when a session exists', async () => {
 		render(Page, { data: { session: createSession() }, form: null });
 
-		const twitButton = page.getByRole('button', { name: /fire a twit/i });
+		const twitButton = page.getByRole('button', { name: 'TWIT' });
 		await expect.element(twitButton).toBeInTheDocument();
 
-		const signOutButton = page.getByRole('button', { name: 'Sign out' });
+		const signOutButton = page.getByRole('button', { name: 'Log out' });
 		await expect.element(signOutButton).toBeInTheDocument();
 	});
 
 	it('shows the feed heading regardless of session state', async () => {
 		render(Page, createDefaultProps());
 
-		const feedHeading = page.getByRole('heading', { name: /latest twits/i });
+		const feedHeading = page.getByRole('heading', { name: 'Timeline' });
 		await expect.element(feedHeading).toBeInTheDocument();
 	});
 });

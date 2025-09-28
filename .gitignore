@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 
 # persisted data
 .data
+
+# test output
+__screenshots__

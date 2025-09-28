@@ -16,7 +16,7 @@ This phase replaces the app-password login flow with OAuth, leveraging the `@atp
   - `src/routes/auth/callback/+server.ts` delegates state validation to the client library, completes the code exchange, hydrates an `Agent` to fetch the user’s handle, stores an OAuth-backed session cookie, and handles error redirects.
 - **Session utilities** – `src/lib/server/session.ts` now models two session shapes (`legacy` and `oauth`), serializes OAuth sessions without exposing tokens, and keeps compatibility with existing credentials-based flows for development.
 - **Twit action** – `src/routes/+page.server.ts` calls `createAuthenticatedAgent`, which transparently resumes either a legacy credential session or restores an OAuth session via the client. Legacy cookies are refreshed; OAuth cookies keep opaque identifiers while the tokens live in the SQLite store. Logout triggers `oauthClient.revoke` when appropriate.
-- **UI** – `src/routes/+page.svelte` replaces the app-password form with a handle field and “Sign in with Bluesky” button, surfaces callback errors via query params, and keeps the twit form unchanged once authenticated.
+- **UI** – `src/routes/+page.svelte` now opens `LoginPanel.svelte`, which collects the handle/DID and presents a “Continue with Bluesky” CTA while the main page retains the twit controls.
 
 ## Configuration
 
@@ -33,7 +33,7 @@ Add these variables to `.env` (see `README.md` for details):
 
 ## Flow Overview
 
-1. User enters a handle and hits “Sign in with Bluesky”.
+1. The guest opens the login modal, enters a handle or DID, and presses “Continue with Bluesky”.
 2. `/auth/login` asks the OAuth client for an authorization URL (state/PKCE handled by the library) and redirects the browser.
 3. After completing the OAuth prompt, Bluesky redirects back to `/auth/callback` with `code` and `state`.
 4. The callback lets `@atproto/oauth-client-node` validate state, exchanges the code, restores an `Agent`, and persists an OAuth session cookie containing only DID/handle metadata.

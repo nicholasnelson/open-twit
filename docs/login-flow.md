@@ -1,48 +1,52 @@
 # Login Flow
 
-This document describes how atweet authenticates a user against the AT Protocol and how the resulting session is persisted across requests.
+This document explains how atweet authenticates users through AT Protocol OAuth and how sessions persist across requests.
 
 ## Components
-- `src/routes/+page.svelte`: Renders the handle input, displays callback errors, and shows the authenticated summary when a session is present.
-- `src/routes/+page.server.ts`: Exposes the session to the page load, triggers OAuth-backed posting via `createAuthenticatedAgent`, and revokes tokens on logout.
-- `src/routes/auth/login/+server.ts`: Creates the OAuth authorization URL (state handled by the client library) and redirects the browser to Bluesky.
-- `src/routes/auth/callback/+server.ts`: Lets the client library validate state, exchanges the authorization code, persists the session cookie, and handles error redirects.
-- `src/lib/server/auth/oauth-client.ts` & `oauth-store.ts`: Instantiate `NodeOAuthClient` with SQLite-backed state/session storage.
-- `src/lib/server/session.ts`: Serializes both legacy (app-password) and OAuth session payloads into the `atweet.session` cookie.
-- `src/hooks.server.ts`: Hydrates `event.locals.session` from the cookie for every request.
-- `.env`: Supplies `ATPROTO_OAUTH_CLIENT_ID`, redirect URIs, and related OAuth metadata.
+- `src/routes/+page.svelte`: Toggles the `LoginPanel` modal, surfaces callback errors, and renders the authenticated twit controls when a session is present.
+- `src/lib/components/LoginPanel.svelte`: Collects the handle/DID input, displays validation messages, and submits to `/auth/login`.
+- `src/routes/+page.server.ts`: Loads the session for the page, surfaces auth error codes, handles the twit/logout actions, and revokes OAuth tokens when signing out.
+- `src/routes/auth/login/+server.ts`: Validates the incoming handle, asks the OAuth client for an authorization URL, and redirects the browser to Bluesky.
+- `src/routes/auth/callback/+server.ts`: Delegates state/PKCE validation to `NodeOAuthClient`, exchanges the authorization code, hydrates user metadata, and persists the session cookie.
+- `src/lib/server/auth/oauth-client.ts` & `oauth-store.ts`: Instantiate the singleton `NodeOAuthClient` backed by SQLite for OAuth state/session storage.
+- `src/lib/server/session.ts`: Serializes and restores both OAuth and legacy app-password payloads inside the `atweet.session` cookie.
+- `src/hooks.server.ts`: Boots the Jetstream consumer and hydrates `event.locals.session` from cookies on every request.
+- `.env`: Supplies the OAuth client metadata, redirect URIs, scope, and storage file locations.
 
 ## Happy Path Sequence
 1. **Initial page load**
-   - `src/hooks.server.ts` loads `atweet.session` (if present) into `event.locals.session`.
-   - `src/routes/+page.server.ts` returns `locals.session`, any auth error codes, and the last submitted handle to the Svelte page.
-   - `src/routes/+page.svelte` renders either the session summary (authenticated) or the OAuth handle form (guest).
+   - `src/hooks.server.ts` reads `atweet.session`; if valid, it assigns the payload to `event.locals.session`.
+   - `src/routes/+page.server.ts` returns the session along with any query-string error codes and the last submitted handle value.
+   - `src/routes/+page.svelte` renders the twit button when authenticated or a `Log in` button that opens the `LoginPanel` modal for guests.
 
 2. **Starting OAuth**
-   - Submitting the handle issues a `GET /auth/login?handle=example.bsky.social` request.
-   - The login endpoint checks that OAuth is enabled, asks the client for an authorization URL (which generates/records state internally), and redirects the browser to Bluesky.
+   - Submitting the modal form issues `GET /auth/login?handle=example.bsky.social`.
+   - The login endpoint ensures OAuth is configured, resolves the primary redirect URI, and asks `NodeOAuthClient.authorize` for an authorization URL.
+   - The handler appends scope/redirect query params for transparency before issuing a 302 redirect to Bluesky.
 
 3. **Callback Processing**
-   - After the user approves the request, Bluesky redirects to `/auth/callback?code=…&state=…`.
-   - `NodeOAuthClient.callback` validates the state/PKCE values it generated earlier, returning an `OAuthSession` on success. We instantiate an `Agent`, fetch the user handle via `agent.com.atproto.server.getSession()`, and persist a cookie with `{ mode: 'oauth', did, handle, service }`.
-   - `locals.session` is set for the current request, and the handler issues a 303 redirect back to `/`.
+   - After approval, Bluesky redirects to `/auth/callback?code=…&state=…`.
+   - `NodeOAuthClient.callback` verifies state + PKCE, returning an OAuth session object.
+   - An `Agent` fetches the latest DID/handle. `createOAuthSessionPayload` normalizes `{ mode: 'oauth', did, handle, service }` and `setSessionCookie` stores it. The request finishes with a 303 redirect to `/`.
 
 4. **Authenticated requests**
-   - When the user triggers the twit action, `createAuthenticatedAgent` restores the OAuth session from the SQLite store and returns an `Agent`. Tokens are refreshed automatically by the OAuth client when near expiry.
-   - Legacy sessions (kept for development) still resume via app passwords; their cookies are refreshed with new JWTs after each twit.
+   - `createAuthenticatedAgent` restores the OAuth session from SQLite whenever the user twits. Tokens refresh automatically; updated data stay server-side.
+   - Legacy sessions (kept for development) still resume via app passwords and refresh JWTs before writing to the cookie.
 
 5. **Logout**
-   - Posting the logout form hits the `?/logout` action. OAuth sessions call `oauthClient.revoke(session.did)` before clearing cookies; legacy sessions simply drop the cookie.
-   - The action redirects with HTTP 303 to `/`.
+   - Posting the logout form calls the `logout` action. OAuth sessions invoke `oauthClient.revoke(session.did)` before clearing cookies; legacy sessions simply drop the cookie.
+   - The action finishes with a 303 redirect to `/` and removes `locals.session`.
 
 ## Error Handling
-- Invalid or missing handle input results in `/?authError=missing_handle`.
-- State mismatches or callback failures clear cookies and redirect with descriptive query parameters; the page surfaces the message above the sign-in form.
-- OAuth session restore failures throw an error tagged with `status: 401`, allowing the twit action to clear cookies and prompt the user to re-authenticate.
-- `getSessionFromCookies` invalidates malformed JSON/corrupted cookies proactively.
+- Missing handles trigger `/?authError=missing_handle`; the modal surfaces the translated copy inline.
+- Disabled OAuth or missing redirect URI values become `oauth_disabled` / `missing_redirect` error codes.
+- Callback failures clear cookies, reset `locals.session`, and redirect with `authError=callback_failed`.
+- Restoring an OAuth session can throw a `{ status: 401 }` error; the twit action clears cookies and instructs the client to sign in again.
+- Corrupted cookies are invalidated proactively by `getSessionFromCookies`.
 
 ## Configuration Notes
-- `ATPROTO_OAUTH_CLIENT_ID` must point at a reachable `client-metadata.json` endpoint (the repository serves one automatically).
-- `ATPROTO_OAUTH_REDIRECT_URI` should list every redirect URI registered with Bluesky (comma-separated). The first entry is used by `/auth/login`.
-- `ATPROTO_OAUTH_STORE_FILE` keeps OAuth state/session data in SQLite; ensure the process can write to the directory.
-- `SESSION_COOKIE_NAME` and `SESSION_MAX_AGE_SECONDS` still live in `src/lib/server/env.ts` for centralized tweaking.
+- `ATPROTO_OAUTH_CLIENT_ID` must resolve to a reachable `client-metadata.json` endpoint (served from `/client-metadata.json`).
+- `ATPROTO_OAUTH_REDIRECT_URI` is a comma-separated list; the first entry seeds `/auth/login` and must match what Bluesky has registered.
+- `ATPROTO_OAUTH_STORE_FILE` points to the SQLite store for OAuth state/session data; keep the directory writable.
+- `SESSION_COOKIE_NAME` and `SESSION_MAX_AGE_SECONDS` are defined in `src/lib/server/env.ts` to keep cookie policy centralized.
+- Set `ATPROTO_OAUTH_ALLOW_HTTP=true` for local development if you need to test against non-HTTPS issuers or redirect URIs.
