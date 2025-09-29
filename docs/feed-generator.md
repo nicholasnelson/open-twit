@@ -10,7 +10,7 @@ Phase 3 introduced the basic feed generator. With Phase 5, the module now suppor
 - `src/lib/server/feed/cursor.ts`: Persists the latest Jetstream cursor to disk so the consumer can resume after restarts.
 - `src/routes/+page.server.ts`: Persists locally created twits to the repository to keep the UI responsive ahead of Jetstream replication.
 - `src/routes/api/feed/+server.ts`: Reads from the repository with optional `limit`/`cursor` query parameters and returns the JSON payload consumed by the UI.
-- `src/lib/server/feed/store.spec.ts`: Vitest coverage for pagination, deduplication, and cursor handling in the in-memory repository.
+- `src/lib/server/feed/store.test.ts`: Vitest coverage for pagination, deduplication, and cursor handling in the in-memory repository.
 
 ## Request Flow
 1. A user authenticates and fires a twit from the root page.

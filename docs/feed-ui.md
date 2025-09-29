@@ -6,7 +6,7 @@ Phase 4 introduced the client-side feed; recent refactors tightened the polling 
 - `src/lib/components/TwitFeed.svelte`: Orchestrates initial fetch, interval refresh, cursor pagination, and rendering of loading/empty/error states.
 - `src/lib/utils/datetime.ts`: Formats relative and absolute timestamps so the list stays fresh without extra round-trips.
 - `src/routes/+page.svelte`: Mounts `TwitFeed` beneath the twit action so both guests and signed-in users can watch activity roll in.
-- `src/routes/page.svelte.spec.ts`: Uses `@vitest/browser` to stub `/api/feed` and confirm the page mounts the feed scaffold during browser-driven tests.
+- `src/routes/page.svelte.test.ts`: Uses `@vitest/browser` to stub `/api/feed` and confirm the page mounts the feed scaffold during browser-driven tests.
 
 ## Behaviour
 1. Initial mount requests `/api/feed?limit=20`; skeleton cards display until the payload resolves.

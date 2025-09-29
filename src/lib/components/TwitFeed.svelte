@@ -117,7 +117,6 @@
 	};
 
 	onMount(() => {
-		console.log("Mounted");
 		loadInitial();
 
 		refreshTimer = setInterval(refreshLatest, REFRESH_INTERVAL_MS);

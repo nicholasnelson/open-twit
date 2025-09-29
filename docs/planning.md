@@ -81,7 +81,7 @@
   - Feed endpoint with pagination, dedupe logic, and SQLite persistence.
   - Optional Jetstream consumer wired through the global SvelteKit hook.
 - **Upcoming Focus**
-  - Align automated tests (`page.svelte.spec.ts`, repository specs) with the latest UI copy and OAuth flow.
+  - Align automated tests (`page.svelte.test.ts`, repository specs) with the latest UI copy and OAuth flow.
   - Expand repository tooling (migration scripts, health checks) for production-style deployments.
   - Introduce richer empty/error states and analytics hooks without regressing performance.
   - Document operational runbooks for enabling Jetstream in multi-instance environments.
