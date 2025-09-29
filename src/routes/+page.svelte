@@ -10,16 +10,25 @@
 		authHandle?: string;
 	};
 
-	type TwitFormState = {
-		formType: 'twit';
-		message?: string;
-		twitStatus?: 'success' | 'error';
-		twitTimestamp?: string;
-		cooldownExpiresAt?: string;
-		twitUri?: string;
-	};
+type TwitFormState = {
+	formType: 'twit';
+	message?: string;
+	twitStatus?: 'success' | 'error';
+	twitTimestamp?: string;
+	cooldownExpiresAt?: string;
+	twitUri?: string;
+};
 
-	type FormState = TwitFormState | null;
+type RetwitFormState = {
+	formType: 'retwit';
+	message?: string;
+	retwitStatus?: 'success' | 'error';
+	cooldownExpiresAt?: string;
+	retwitUri?: string;
+	subjectUri?: string;
+};
+
+type FormState = TwitFormState | RetwitFormState | null;
 
 	let { data, form } = $props<{ data: PageData; form?: FormState }>();
 
@@ -53,11 +62,11 @@
 		if (timer) clearInterval(timer);
 	});
 
-	$effect(() => {
-		if (form?.formType === 'twit' && form.cooldownExpiresAt) {
-			cooldownExpiresAt = form.cooldownExpiresAt;
-		}
-	});
+$effect(() => {
+	if (form?.cooldownExpiresAt) {
+		cooldownExpiresAt = form.cooldownExpiresAt;
+	}
+});
 
 	$effect(() => {
 		if (!data.session && data.authError) {
@@ -75,9 +84,9 @@
 		showLoginPanel = false;
 	};
 
-	const hasTwitFeedback = $derived(
-		form?.formType === 'twit' && typeof form.message === 'string' && form.message.length > 0
-	);
+const hasActionFeedback = $derived(
+	Boolean(form?.message && form.message.length > 0)
+);
 </script>
 
 <main class="min-h-screen">
@@ -109,7 +118,7 @@
 				</button>
 			{/if}
 
-		{#if hasTwitFeedback}
+		{#if hasActionFeedback}
 			<p class="text-sm text-slate-300" aria-live="polite">{form?.message}</p>
 		{:else if isCoolingDown}
 			<p class="text-xs text-slate-400" aria-live="polite">Cooldown active… {cooldownRemainingSeconds}s</p>
@@ -121,7 +130,7 @@
 		{/if}
 
 		<section>
-			<TwitFeed />
+			<TwitFeed canRetwit={Boolean(data.session)} isCoolingDown={isCoolingDown} />
 		</section>
 	</div>
 </main>

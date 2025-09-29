@@ -12,6 +12,7 @@ export {
 	type ListResult,
 	type MutableTwitRepository,
 	type TwitFeedItem,
+	type TwitItemType,
 	type TwitRepository
 } from './repository';
 

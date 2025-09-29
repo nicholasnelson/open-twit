@@ -39,16 +39,48 @@ const createDatabase = (filePath: string): Database => {
 	db.exec(`
 		CREATE TABLE IF NOT EXISTS twits (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			type TEXT NOT NULL DEFAULT 'twit',
 			authorDid TEXT NOT NULL,
 			authorHandle TEXT NOT NULL,
 			cid TEXT NOT NULL,
 			indexedAt TEXT NOT NULL,
 			recordCreatedAt TEXT NOT NULL,
-			uri TEXT NOT NULL UNIQUE
+			uri TEXT NOT NULL UNIQUE,
+			resharedByDid TEXT,
+			resharedByHandle TEXT,
+			subjectUri TEXT,
+			subjectCid TEXT,
+			subjectRecordCreatedAt TEXT
 		);
 
 		CREATE INDEX IF NOT EXISTS twits_indexedAt_desc ON twits (indexedAt DESC);
 	`);
+
+	const columnMigrations: Array<{ name: string; definition: string }> = [
+		{ name: 'type', definition: "ADD COLUMN type TEXT NOT NULL DEFAULT 'twit'" },
+		{ name: 'resharedByDid', definition: 'ADD COLUMN resharedByDid TEXT' },
+		{ name: 'resharedByHandle', definition: 'ADD COLUMN resharedByHandle TEXT' },
+		{ name: 'subjectUri', definition: 'ADD COLUMN subjectUri TEXT' },
+		{ name: 'subjectCid', definition: 'ADD COLUMN subjectCid TEXT' },
+		{ name: 'subjectRecordCreatedAt', definition: 'ADD COLUMN subjectRecordCreatedAt TEXT' }
+	];
+
+	try {
+		const existingColumns = new Set(
+			db.prepare('PRAGMA table_info(twits)').all().map((column) => column.name as string)
+		);
+		for (const { name, definition } of columnMigrations) {
+			if (existingColumns.has(name)) continue;
+			try {
+				db.prepare(`ALTER TABLE twits ${definition}`).run();
+				existingColumns.add(name);
+			} catch (error) {
+				console.warn(`Failed to ensure column ${name} on twits table`, error);
+			}
+		}
+	} catch (error) {
+		console.warn('Failed to inspect twits table schema', error);
+	}
 
 	return db;
 };
@@ -59,6 +91,7 @@ export class SqliteTwitRepository implements MutableTwitRepository {
 	#insert: Statement;
 	#selectPage: Statement;
 	#selectFirstPage: Statement;
+	#selectByUri: Statement;
 	#trim: Statement;
 	#clearStmt: Statement;
 
@@ -69,21 +102,53 @@ export class SqliteTwitRepository implements MutableTwitRepository {
 		this.#maxBuffer = options.maxBuffer ?? MAX_BUFFER_DEFAULT;
 
 		this.#insert = db.prepare(
-			`INSERT OR IGNORE INTO twits (authorDid, authorHandle, cid, indexedAt, recordCreatedAt, uri)
-			VALUES (@authorDid, @authorHandle, @cid, @indexedAt, @recordCreatedAt, @uri)`
+			`INSERT OR IGNORE INTO twits (
+				type,
+				authorDid,
+				authorHandle,
+				cid,
+				indexedAt,
+				recordCreatedAt,
+				uri,
+				resharedByDid,
+				resharedByHandle,
+				subjectUri,
+				subjectCid,
+				subjectRecordCreatedAt
+			)
+			VALUES (
+				@type,
+				@authorDid,
+				@authorHandle,
+				@cid,
+				@indexedAt,
+				@recordCreatedAt,
+				@uri,
+				@resharedByDid,
+				@resharedByHandle,
+				@subjectUri,
+				@subjectCid,
+				@subjectRecordCreatedAt
+			)`
 		);
 		this.#selectPage = db.prepare(
-			`SELECT id, authorDid, authorHandle, cid, indexedAt, recordCreatedAt, uri
+			`SELECT id, type, authorDid, authorHandle, cid, indexedAt, recordCreatedAt, uri, resharedByDid, resharedByHandle, subjectUri, subjectCid, subjectRecordCreatedAt
 			FROM twits
 			WHERE id < @cursor
 			ORDER BY id DESC
 			LIMIT @limit`
 		);
 		this.#selectFirstPage = db.prepare(
-			`SELECT id, authorDid, authorHandle, cid, indexedAt, recordCreatedAt, uri
+			`SELECT id, type, authorDid, authorHandle, cid, indexedAt, recordCreatedAt, uri, resharedByDid, resharedByHandle, subjectUri, subjectCid, subjectRecordCreatedAt
 			FROM twits
 			ORDER BY id DESC
 			LIMIT @limit`
+		);
+		this.#selectByUri = db.prepare(
+			`SELECT id, type, authorDid, authorHandle, cid, indexedAt, recordCreatedAt, uri, resharedByDid, resharedByHandle, subjectUri, subjectCid, subjectRecordCreatedAt
+			FROM twits
+			WHERE uri = @uri
+			LIMIT 1`
 		);
 		this.#trim = db.prepare(
 			`DELETE FROM twits
@@ -100,12 +165,18 @@ export class SqliteTwitRepository implements MutableTwitRepository {
 		const indexedAt = item.indexedAt ?? new Date().toISOString();
 
 		const result = this.#insert.run({
+			type: item.type,
 			authorDid: item.authorDid,
 			authorHandle: item.authorHandle,
 			cid: item.cid,
 			indexedAt,
 			recordCreatedAt: item.recordCreatedAt,
-			uri: item.uri
+			uri: item.uri,
+			resharedByDid: item.resharedByDid ?? null,
+			resharedByHandle: item.resharedByHandle ?? null,
+			subjectUri: item.subjectUri ?? null,
+			subjectCid: item.subjectCid ?? null,
+			subjectRecordCreatedAt: item.subjectRecordCreatedAt ?? null
 		});
 
 		if (result.changes === 0) {
@@ -129,13 +200,22 @@ export class SqliteTwitRepository implements MutableTwitRepository {
 				: null;
 
 		return {
-			items: rows.map(({ id: _id, ...rest }) => rest),
+			items: rows.map(({ id: _id, ...rest }) => rest as TwitFeedItem),
 			nextCursor
 		};
 	}
 
 	async clear(): Promise<void> {
 		this.#clearStmt.run();
+	}
+
+	async getByUri(uri: string): Promise<TwitFeedItem | null> {
+		const row = this.#selectByUri.get({ uri }) as
+			| (TwitFeedItem & { id: number })
+			| undefined;
+		if (!row) return null;
+		const { id: _id, ...rest } = row;
+		return rest;
 	}
 }
 

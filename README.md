@@ -1,6 +1,6 @@
 # atweet
 
-Experimental SvelteKit app for testing the AT Protocol by firing "twits" (stateless actions) and browsing a global feed.
+Experimental SvelteKit app for testing the AT Protocol by firing "twits" (stateless actions), resharing them via "retwits", and browsing a global feed.
 
 ## Getting Started
 
@@ -46,11 +46,13 @@ Experimental SvelteKit app for testing the AT Protocol by firing "twits" (statel
 ## Notes
 
 - The `static/lexicons/com.atweet.twit.json` file defines the custom `com.atweet.twit` record schema and is automatically available from `/lexicons/com.atweet.twit.json` when the dev server is running.
+- The `static/lexicons/com.atweet.retwit.json` file defines the companion `com.atweet.retwit` schema used when resharing existing posts.
 - OAuth sign-in keeps credentials off the browser: state/tokens live in the SQLite-backed OAuth store, and cookies contain only DID/handle metadata.
 - `client-metadata.json` is served from the SvelteKit app using the configured environment variables, so you can point the OAuth `client_id` to your running instance during development.
 - See [docs/login-flow.md](docs/login-flow.md) for a step-by-step explanation of the authentication flow.
 - See [docs/twit-action.md](docs/twit-action.md) for the Phase 2 twit action mechanics and cooldown behaviour.
 - See [docs/feed-generator.md](docs/feed-generator.md) for details on the Phase 3 feed module and API endpoint.
+- See [docs/retwit-spec.md](docs/retwit-spec.md) for the retwit UX, server contract, and testing expectations.
 - See [docs/feed-ui.md](docs/feed-ui.md) for the Phase 4 feed experience and UI behaviour.
 - See [docs/operations.md](docs/operations.md) for Jetstream and SQLite operational guidance.
 - Jetstream integration is disabled by default. Enable it by exporting `JETSTREAM_ENABLED=true` in your environment.

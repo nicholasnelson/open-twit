@@ -1,13 +1,21 @@
 export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
+export type TwitItemType = 'twit' | 'retwit';
+
 export type TwitFeedItem = {
+	type: TwitItemType;
 	authorDid: string;
 	authorHandle: string;
 	cid: string;
 	indexedAt: string;
 	recordCreatedAt: string;
 	uri: string;
+	resharedByDid?: string;
+	resharedByHandle?: string;
+	subjectUri?: string;
+	subjectCid?: string;
+	subjectRecordCreatedAt?: string;
 };
 
 export type ListOptions = {
@@ -23,6 +31,7 @@ export type ListResult = {
 export interface TwitRepository {
 	add(item: TwitFeedItem): Promise<void>;
 	list(options?: ListOptions): Promise<ListResult>;
+	getByUri(uri: string): Promise<TwitFeedItem | null>;
 }
 
 export interface MutableTwitRepository extends TwitRepository {

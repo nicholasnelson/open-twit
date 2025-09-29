@@ -61,6 +61,13 @@ export class InMemoryTwitRepository implements MutableTwitRepository {
 		};
 	}
 
+	async getByUri(uri: string): Promise<TwitFeedItem | null> {
+		const match = this.#items.find((item) => item.uri === uri);
+		if (!match) return null;
+		const { id: _id, ...rest } = match;
+		return { ...rest };
+	}
+
 	async clear(): Promise<void> {
 		this.#items = [];
 		this.#nextId = 1;

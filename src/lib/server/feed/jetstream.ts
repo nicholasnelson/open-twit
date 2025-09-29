@@ -8,6 +8,7 @@ import {
 import { CommitType, Jetstream, type CommitCreateEvent } from '@skyware/jetstream';
 
 const TWIT_COLLECTION = 'com.atweet.twit';
+const RETWIT_COLLECTION = 'com.atweet.retwit';
 
 const handleCache = new Map<string, string>();
 let startPromise: Promise<void> | null = null;
@@ -28,7 +29,7 @@ const toStringOrFallback = (value: unknown, fallback = ''): string => {
 
 const getHandleForDid = (did: string): string => handleCache.get(did) ?? did;
 
-const handleCreateEvent = async (event: CommitCreateEvent<typeof TWIT_COLLECTION>) => {
+const handleTwitCreateEvent = async (event: CommitCreateEvent<typeof TWIT_COLLECTION>) => {
 	const record = event.commit.record as { createdAt?: string } | undefined;
 	const recordCreatedAt =
 		typeof record?.createdAt === 'string' ? record.createdAt : toIsoDate(event.time_us);
@@ -41,6 +42,7 @@ const handleCreateEvent = async (event: CommitCreateEvent<typeof TWIT_COLLECTION
 
 	try {
 		await twitRepository.add({
+			type: 'twit',
 			authorDid: event.did,
 			authorHandle: getHandleForDid(event.did),
 			cid,
@@ -50,6 +52,68 @@ const handleCreateEvent = async (event: CommitCreateEvent<typeof TWIT_COLLECTION
 		});
 	} catch (error) {
 		console.error('Failed to persist Jetstream event', { uri, error });
+	}
+
+	schedulePersistCursor(event.time_us);
+};
+
+const extractDidFromUri = (uri: string): string | null => {
+	if (!uri.startsWith('at://')) return null;
+	const [, , did] = uri.split('/', 3);
+	return did ?? null;
+};
+
+const handleRetwitCreateEvent = async (event: CommitCreateEvent<typeof RETWIT_COLLECTION>) => {
+	const record = event.commit.record as {
+		createdAt?: string;
+		subject?: { uri?: string; cid?: string };
+	} | null;
+	const recordCreatedAt =
+		typeof record?.createdAt === 'string' ? record.createdAt : toIsoDate(event.time_us);
+	const subjectUri = typeof record?.subject?.uri === 'string' ? record.subject.uri : null;
+	const subjectCid = typeof record?.subject?.cid === 'string' ? record.subject.cid : null;
+
+	if (!subjectUri || !subjectCid) {
+		console.warn('Received retwit without valid subject data', { event });
+		schedulePersistCursor(event.time_us);
+		return;
+	}
+
+	let original = await twitRepository.getByUri(subjectUri);
+	if (!original) {
+		const fallbackDid = extractDidFromUri(subjectUri) ?? subjectUri;
+		original = {
+			type: 'twit',
+			authorDid: fallbackDid,
+			authorHandle: getHandleForDid(fallbackDid),
+			cid: subjectCid,
+			indexedAt: recordCreatedAt,
+			recordCreatedAt,
+			uri: subjectUri
+		};
+	}
+
+	const resharedByHandle = getHandleForDid(event.did);
+	const uri = `at://${event.did}/${event.commit.collection}/${event.commit.rkey}`;
+	const cid = toStringOrFallback(event.commit.cid, uri);
+
+	try {
+		await twitRepository.add({
+			type: 'retwit',
+			authorDid: original.authorDid,
+			authorHandle: original.authorHandle,
+			cid,
+			indexedAt: toIsoDate(event.time_us),
+			recordCreatedAt,
+			uri,
+			resharedByDid: event.did,
+			resharedByHandle,
+			subjectUri,
+			subjectCid,
+			subjectRecordCreatedAt: original.recordCreatedAt
+		});
+	} catch (error) {
+		console.error('Failed to persist Jetstream retwit event', { uri, error });
 	}
 
 	schedulePersistCursor(event.time_us);
@@ -72,7 +136,7 @@ const ensureJetstream = async (): Promise<Jetstream | null> => {
 	try {
 		jetstreamInstance = new Jetstream({
 			endpoint: JETSTREAM_ENDPOINT,
-			wantedCollections: [TWIT_COLLECTION],
+			wantedCollections: [TWIT_COLLECTION, RETWIT_COLLECTION],
 			cursor
 		});
 	} catch (error) {
@@ -104,7 +168,12 @@ const ensureJetstream = async (): Promise<Jetstream | null> => {
 
 	jetstreamInstance.onCreate(TWIT_COLLECTION, async (event) => {
 		if (event.commit.operation !== CommitType.Create) return;
-		await handleCreateEvent(event);
+		await handleTwitCreateEvent(event);
+	});
+
+	jetstreamInstance.onCreate(RETWIT_COLLECTION, async (event) => {
+		if (event.commit.operation !== CommitType.Create) return;
+		await handleRetwitCreateEvent(event);
 	});
 
 	return jetstreamInstance;

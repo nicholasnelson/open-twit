@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { createInMemoryTwitRepository, type TwitFeedItem } from './store';
 
 const createItem = (overrides: Partial<TwitFeedItem> = {}): TwitFeedItem => ({
+	type: overrides.type ?? 'twit',
 	authorDid: overrides.authorDid ?? 'did:plc:test',
 	authorHandle: overrides.authorHandle ?? 'test.handle',
 	cid: overrides.cid ?? `cid-${Math.random().toString(36).slice(2)}`,
@@ -9,7 +10,12 @@ const createItem = (overrides: Partial<TwitFeedItem> = {}): TwitFeedItem => ({
 	recordCreatedAt: overrides.recordCreatedAt ?? new Date().toISOString(),
 	uri:
 		overrides.uri ??
-		`at://did:plc:test/app.bsky.feed.post/${Math.random().toString(36).slice(2)}`
+		`at://did:plc:test/app.bsky.feed.post/${Math.random().toString(36).slice(2)}`,
+	resharedByDid: overrides.resharedByDid,
+	resharedByHandle: overrides.resharedByHandle,
+	subjectUri: overrides.subjectUri,
+	subjectCid: overrides.subjectCid,
+	subjectRecordCreatedAt: overrides.subjectRecordCreatedAt
 });
 
 	describe('InMemoryTwitRepository', () => {
@@ -73,5 +79,43 @@ const createItem = (overrides: Partial<TwitFeedItem> = {}): TwitFeedItem => ({
 		const { items } = await store.list();
 		expect(items).toHaveLength(1);
 		expect(items[0].cid).toBe(entry.cid);
+	});
+
+	it('finds entries by uri', async () => {
+		const entry = createItem({ uri: 'at://did:plc:test/com.atweet.twit/find-me' });
+		await store.add(entry);
+
+		const match = await store.getByUri(entry.uri);
+		expect(match).not.toBeNull();
+		expect(match?.uri).toBe(entry.uri);
+		expect(match?.type).toBe('twit');
+	});
+
+	it('stores retwit metadata when provided', async () => {
+		const retwit = createItem({
+			type: 'retwit',
+			uri: 'at://did:plc:reshare/com.atweet.retwit/123',
+			cid: 'retwit-cid',
+			authorDid: 'did:plc:original',
+			authorHandle: 'original.handle',
+			recordCreatedAt: '2024-01-01T00:00:00.000Z',
+			indexedAt: '2024-01-01T00:00:05.000Z',
+			resharedByDid: 'did:plc:reshare',
+			resharedByHandle: 'reshare.handle',
+			subjectUri: 'at://did:plc:original/com.atweet.twit/abc',
+			subjectCid: 'subject-cid',
+			subjectRecordCreatedAt: '2023-12-31T23:59:59.000Z'
+		});
+
+		await store.add(retwit);
+		const { items } = await store.list();
+
+		expect(items).toHaveLength(1);
+		expect(items[0]).toMatchObject({
+			type: 'retwit',
+			resharedByDid: 'did:plc:reshare',
+			subjectUri: 'at://did:plc:original/com.atweet.twit/abc',
+			subjectRecordCreatedAt: '2023-12-31T23:59:59.000Z'
+		});
 	});
 });

@@ -1,35 +1,55 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { formatAbsoluteTime, formatRelativeTime } from '$lib/utils/datetime';
+import { formatAbsoluteTime, formatRelativeTime } from '$lib/utils/datetime';
+import RecycleIcon from './RecycleIcon.svelte';
+import AvatarBadge from './AvatarBadge.svelte';
+
+	type ReshareMetadata = {
+		did: string;
+		handle: string;
+	};
 
 	type FeedItem = {
+		type: 'twit' | 'retwit';
 		uri: string;
 		cid: string;
 		indexedAt: string;
 		record: {
 			createdAt: string;
+			subject?: {
+				uri: string;
+				cid: string;
+			};
+			subjectCreatedAt?: string;
 		};
 		author: {
 			did: string;
 			handle: string;
 		};
+		resharedBy?: ReshareMetadata;
 	};
 
-	type FeedResponse = {
-		cursor: string | null;
-		items: FeedItem[];
-	};
+type FeedResponse = {
+	cursor: string | null;
+	items: FeedItem[];
+};
 
-	const PAGE_SIZE = 20;
-	const REFRESH_INTERVAL_MS = 5000;
-	const CLOCK_TICK_MS = 60000;
+const props = $props<{ canRetwit?: boolean; isCoolingDown?: boolean }>();
+const canRetwit = $derived(Boolean(props.canRetwit));
+const parentCooldownActive = $derived(Boolean(props.isCoolingDown));
 
-	let items = $state<FeedItem[]>([]);
+const PAGE_SIZE = 20;
+const REFRESH_INTERVAL_MS = 5000;
+const CLOCK_TICK_MS = 60000;
+
+let items = $state<FeedItem[]>([]);
 	let nextCursor = $state<string | null>(null);
 	let isInitialLoading = $state(true);
 	let isLoadingMore = $state(false);
-	let errorMessage = $state<string | null>(null);
-	let now = $state(Date.now());
+let errorMessage = $state<string | null>(null);
+let now = $state(Date.now());
+let pendingRetwitTarget = $state<string | null>(null);
 
 	const isEmpty = $derived(!isInitialLoading && items.length === 0);
 	const hasMore = $derived(Boolean(nextCursor));
@@ -130,13 +150,50 @@
 		};
 	});
 
-	const handleRetry = () => {
-		loadInitial();
-	};
+const handleRetry = () => {
+	loadInitial();
+};
 
-	const currentTime = $derived(new Date(now));
+const currentTime = $derived(new Date(now));
 
-	const formatAuthor = (item: FeedItem): string => item.author.handle || item.author.did;
+const formatHandle = (value: { handle: string; did: string }): string =>
+	value.handle || value.did;
+
+const getContentCreatedAt = (item: FeedItem): string =>
+	item.type === 'retwit'
+		? item.record.subjectCreatedAt ?? item.record.createdAt
+		: item.record.createdAt;
+
+const getRetwitTarget = (item: FeedItem): { uri: string; cid: string } | null => {
+	if (item.type === 'retwit') {
+		if (!item.record.subject) return null;
+		return {
+			uri: item.record.subject.uri,
+			cid: item.record.subject.cid
+		};
+	}
+	return { uri: item.uri, cid: item.cid };
+};
+
+const isRetwitDisabled = (item: FeedItem): boolean => {
+	if (!canRetwit) return true;
+	const target = getRetwitTarget(item);
+	if (!target) return true;
+	if (parentCooldownActive) return true;
+	return pendingRetwitTarget === target.uri;
+};
+
+const retwitEnhancer = (node: HTMLFormElement, item: FeedItem) =>
+	enhance(node, () => {
+		const target = getRetwitTarget(item);
+		pendingRetwitTarget = target?.uri ?? null;
+		return ({ update }) => {
+			pendingRetwitTarget = null;
+			if (typeof update === 'function') {
+				update();
+			}
+		};
+	});
 </script>
 
 <section class="surface-card mx-auto w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl space-y-6">
@@ -161,12 +218,54 @@
 			No twits yet—be the first to spark the timeline.
 		</div>
 	{:else}
-		<ul class="space-y-3">
-			{#each items as item (item.uri)}
-				<li class="flex flex-col items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/70 p-5 text-center text-sm text-slate-200">
-					<span class="font-semibold text-slate-100">@{formatAuthor(item)} <span class="font-normal text-slate-400">twitted!</span></span>
-					<span class="text-xs text-slate-500">{formatRelativeTime(item.record.createdAt, currentTime)}</span>
+		<ul class="space-y-4">
+			{#each items as item, index (item.uri)}
+				{@const retwitTarget = getRetwitTarget(item)}
+				<li class="flex items-start gap-3 px-2 py-3 text-left text-sm text-slate-200">
+					<AvatarBadge handle={formatHandle(item.author)} did={item.author.did} />
+					<div class="flex-1 space-y-2">
+						<div class="flex flex-wrap items-center justify-between gap-3">
+							<p class="font-semibold text-slate-100 leading-tight">
+								{#if item.type === 'retwit'}
+									<span>@{formatHandle(item.resharedBy ?? { handle: item.author.handle, did: item.author.did })}</span>
+									<span class="font-normal text-slate-400"> retwitted </span>
+									<span>@{formatHandle(item.author)}</span>
+								{:else}
+									<span>@{formatHandle(item.author)}</span>
+									<span class="font-normal text-slate-400"> twitted!</span>
+								{/if}
+							</p>
+							<time class="text-xs text-slate-500" title={formatAbsoluteTime(getContentCreatedAt(item))}>
+								{formatRelativeTime(getContentCreatedAt(item), currentTime)}
+							</time>
+						</div>
+
+						{#if canRetwit && retwitTarget}
+							<form method="post" action="?/retwit" use:retwitEnhancer={item} class="inline-flex items-center gap-2 text-xs text-slate-400">
+								<input type="hidden" name="uri" value={retwitTarget.uri} />
+								<input type="hidden" name="cid" value={retwitTarget.cid} />
+								<button
+									type="submit"
+									class="flex h-6 w-6 items-center justify-center text-slate-300 transition hover:text-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-400/40 disabled:opacity-40"
+									disabled={isRetwitDisabled(item)}
+									title={pendingRetwitTarget === retwitTarget.uri || parentCooldownActive ? 'Retwit cooling down' : `Retwit ${formatHandle(item.author)}`}
+								>
+									<span class="sr-only">
+										{pendingRetwitTarget === retwitTarget.uri || parentCooldownActive
+										? `Retwit cooling down`
+										: `Retwit ${formatHandle(item.author)}`}
+									</span>
+									<RecycleIcon className="h-3.5 w-3.5" />
+								</button>
+							</form>
+						{/if}
+					</div>
 				</li>
+				{#if index < items.length - 1}
+					<li aria-hidden="true" class="px-2">
+						<hr class="border-slate-800/70" />
+					</li>
+				{/if}
 			{/each}
 		</ul>
 
