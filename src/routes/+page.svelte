@@ -6,8 +6,8 @@
 
 	type PageData = {
 		session: Session | null;
-		authError: string | null;
-		authHandle: string;
+		authError?: string | null;
+		authHandle?: string;
 	};
 
 	type TwitFormState = {

@@ -10,13 +10,10 @@ const createDefaultProps = () => ({
 });
 
 const createSession = (overrides: Partial<Session> = {}): Session => ({
-	mode: 'legacy',
+	mode: 'oauth',
 	did: 'did:plc:example',
 	handle: 'example.test',
-	accessJwt: 'access-token',
-	refreshJwt: 'refresh-token',
 	service: 'https://pds.example.com',
-	...overrides
 });
 
 describe('/+page.svelte', () => {
